@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SmartBite AI</title>
+<style>
+:root{--orange:#e87524;--ink:#242424;--muted:#6d6d6d;--paper:#fffaf5}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#fff5eb,#fff);font-family:Arial,sans-serif;color:var(--ink)}
+header{padding:28px 18px;text-align:center;background:#fff;box-shadow:0 2px 14px #0000000c}
+h1{margin:0;color:var(--orange);font-size:clamp(25px,5vw,34px)}header p{margin:8px 0 0;color:var(--muted)}
+main{max-width:1050px;margin:26px auto;padding:0 16px;display:grid;grid-template-columns:300px 1fr;gap:18px}
+.panel{background:#fff;border:1px solid #f1e5db;border-radius:16px;padding:18px;box-shadow:0 8px 25px #5d2e0d0a}
+h2{font-size:19px;margin:0 0 14px}.menu-item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 0;border-bottom:1px solid #f2eee9}
+.menu-item:last-child{border:0}.price{font-weight:bold;color:var(--orange)}
+button{border:0;border-radius:9px;padding:10px 13px;background:var(--orange);color:white;font-weight:bold;cursor:pointer}
+button:hover{filter:brightness(.95)}button.secondary{background:#fff0e4;color:#9a4b14}
+.cart-total{font-weight:bold;margin:14px 0}.cart-line{font-size:14px;color:#555;margin:7px 0}
+.chat{display:flex;flex-direction:column;min-height:480px}.messages{flex:1;min-height:280px;max-height:430px;overflow:auto;background:var(--paper);border-radius:12px;padding:13px;margin-bottom:12px}
+.msg{white-space:pre-wrap;line-height:1.45;margin:8px 0;padding:10px 12px;border-radius:10px;max-width:95%}.user{background:#ffead9;margin-left:auto}.bot{background:#fff;border:1px solid #f0e4d9}
+form{display:flex;gap:8px}input{min-width:0;flex:1;padding:12px;border:1px solid #ddd;border-radius:9px;font-size:15px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.status{color:var(--muted);font-size:13px;min-height:18px;margin-top:8px}
+@media(max-width:720px){main{grid-template-columns:1fr}.chat{min-height:430px}}
+</style>
+</head>
+<body>
+<header><h1>WELCOME TO SMARTBITE AI</h1><p>Your Smart Food Ordering Assistant</p></header>
+<main>
+<section class="panel">
+<h2>Our Menu</h2>
+<div id="menu"></div>
+<h2 style="margin-top:22px">Your Cart</h2>
+<div id="cart"><p class="cart-line">Your cart is empty.</p></div>
+<div class="cart-total" id="total">Total: Rs.0</div>
+<div class="actions"><button class="secondary" onclick="clearCart()">Clear cart</button></div>
+</section>
+<section class="panel chat">
+<h2>Chat with SmartBite AI</h2>
+<div class="messages" id="messages"><div class="msg bot">Hello! I can answer food questions and recommend items from our menu. What would you like to know?</div></div>
+<form id="chatForm"><input id="prompt" placeholder="Ask about food or enter your preferences..." autocomplete="off"><button type="submit">Send</button></form>
+<div class="actions"><button class="secondary" id="recommend">AI Food Recommendations</button></div>
+<div class="status" id="status"></div>
+</section>
+</main>
+<script>
+const items=[["Burger",120],["Pizza",250],["Biryani",180],["Sandwich",90]];
+const cart={};
+const menu=document.getElementById("menu"), cartBox=document.getElementById("cart"), totalBox=document.getElementById("total");
+items.forEach(([name,price])=>{
+ const row=document.createElement("div"); row.className="menu-item";
+ const label=document.createElement("span"); label.textContent=name+" · Rs."+price;
+ const add=document.createElement("button"); add.textContent="Add"; add.onclick=()=>{cart[name]=(cart[name]||0)+1;renderCart();};
+ row.append(label,add);menu.append(row);
+});
+function renderCart(){
+ cartBox.replaceChildren();let total=0,has=false;
+ items.forEach(([name,price])=>{if(cart[name]){has=true;total+=price*cart[name];
+ const row=document.createElement("div");row.className="cart-line";
+ const text=document.createElement("span");text.textContent=`${name} × ${cart[name]} = Rs.${price*cart[name]} `;
+ const remove=document.createElement("button");remove.className="secondary";remove.textContent="Remove";remove.onclick=()=>{delete cart[name];renderCart();};
+ row.append(text,remove);cartBox.append(row);
+ }});
+ if(!has){const p=document.createElement("p");p.className="cart-line";p.textContent="Your cart is empty.";cartBox.append(p);}
+ totalBox.textContent="Total: Rs."+total;
+}
+function clearCart(){Object.keys(cart).forEach(k=>delete cart[k]);renderCart();}
+function addMessage(text,kind){const el=document.createElement("div");el.className="msg "+kind;el.textContent=text;const box=document.getElementById("messages");box.append(el);box.scrollTop=box.scrollHeight;}
+async function askAI(recommendation){
+ const input=document.getElementById("prompt"), message=input.value.trim();
+ if(!message){document.getElementById("status").textContent="Please enter your message first.";return;}
+ addMessage(message,"user");input.value="";
+ const status=document.getElementById("status");status.textContent="SmartBite AI is thinking...";
+ document.querySelectorAll("button").forEach(b=>b.disabled=true);
+ try{
+  const response=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,recommendation})});
+  const data=await response.json();
+  if(!response.ok)throw new Error(data.error||"AI request failed.");
+  addMessage(data.answer,"bot");status.textContent="";
+ }catch(err){addMessage("AI Error: "+err.message,"bot");status.textContent="Please try again.";}
+ finally{document.querySelectorAll("button").forEach(b=>b.disabled=false);}
+}
+document.getElementById("chatForm").addEventListener("submit",e=>{e.preventDefault();askAI(false);});
+document.getElementById("recommend").addEventListener("click",()=>askAI(true));
+</script>
+</body>
+</html>
