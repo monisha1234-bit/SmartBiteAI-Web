@@ -1,6 +1,6 @@
 FROM eclipse-temurin:17-jdk
 WORKDIR /app
-COPY src/SmartBiteWeb.java /app/SmartBiteWeb.java
+COPY SmartBiteWeb.java /app/SmartBiteWeb.java
 COPY public /app/public
 RUN javac SmartBiteWeb.java
 ENV PORT=8080
